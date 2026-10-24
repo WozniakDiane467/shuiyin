@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRUD·REST·入参·SQL 四层对照 + WHERE 安全 · 交互演示版</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --surface: #111827;
+      --surface-2: #1a2234;
+      --border: #243049;
+      --text: #e8edf5;
+      --muted: #8b9cb8;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59,130,246,.35);
+      --server: #10b981;
+      --client: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --purple: #a78bfa;
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+      --orange: #f97316;
+      --radius: 14px;
+      --font: 'Noto Sans SC', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.7; overflow-x: hidden; }
+
+    .bg-grid {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,.04) 1px, transparent 1px);
+      background-size: 48px 48px; pointer-events: none; z-index: 0;
+    }
+    .bg-glow {
+      position: fixed; width: 600px; height: 600px; border-radius: 50%;
+      filter: blur(120px); opacity: .18; pointer-events: none; z-index: 0;
+    }
+    .bg-glow-1 { top: -200px; left: -100px; background: var(--purple); }
+    .bg-glow-2 { bottom: -200px; right: -100px; background: var(--cyan); }
+
+    .progress-bar {
+      position: fixed; top: 60px; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--purple), var(--cyan));
+      width: 0%; z-index: 101; transition: width .1s;
+    }
+
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem; height: 60px;
+      background: rgba(10,14,23,.82); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border); transition: box-shadow .3s;
+    }
+    nav.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+    .nav-logo { font-weight: 900; font-size: 1rem; letter-spacing: -.02em; display: flex; align-items: center; gap: .5rem; }
+    .nav-logo span { background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav-links { display: flex; gap: .25rem; list-style: none; flex-wrap: wrap; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; font-size: .78rem;
+      padding: .35rem .7rem; border-radius: 8px;
+      transition: color .2s, background .2s, transform .15s;
+    }
+    .nav-links a:hover { color: var(--text); background: var(--surface-2); transform: translateY(-1px); }
+
+    main { position: relative; z-index: 1; }
+    section { max-width: 1100px; margin: 0 auto; padding: 5rem 2rem 3rem; }
+
+    .section-label {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 1rem;
+      padding: .3rem .8rem; border: 1px solid rgba(59,130,246,.3);
+      border-radius: 999px; background: rgba(59,130,246,.08);
+    }
+    .section-label.purple-label { color: var(--purple); border-color: rgba(167,139,250,.3); background: rgba(167,139,250,.08); }
+    .section-label.cyan-label { color: var(--cyan); border-color: rgba(6,182,212,.3); background: rgba(6,182,212,.08); }
+    .section-label.green-label { color: var(--server); border-color: rgba(16,185,129,.3); background: rgba(16,185,129,.08); }
+    .section-label.pink-label { color: var(--pink); border-color: rgba(236,72,153,.3); background: rgba(236,72,153,.08); }
+    .section-label.danger-label { color: var(--danger); border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.08); }
+    .section-label.client-label { color: var(--client); border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
+
+    h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 900; line-height: 1.15; letter-spacing: -.03em; margin-bottom: 1.2rem; }
+    h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; letter-spacing: -.02em; margin-bottom: 1.5rem; }
+    h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: .8rem; color: var(--text); }
+    p { color: var(--muted); margin-bottom: 1rem; }
+    p strong { color: var(--text); }
+    code.inline { font-family: var(--mono); color: var(--accent); background: rgba(59,130,246,.1); padding: .1rem .4rem; border-radius: 4px; font-size: .88em; }
+
+    .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding-top: 80px; }
+    .hero-badge {
+      display: inline-block; font-size: .8rem; color: var(--purple);
+      border: 1px solid rgba(167,139,250,.35); background: rgba(167,139,250,.1);
+      padding: .35rem 1rem; border-radius: 999px; margin-bottom: 1.5rem; width: fit-content;
+    }
+    .hero-sub { font-size: 1.1rem; max-width: 760px; margin-bottom: 2.5rem; }
+    .hero-pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+    .pillar-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.4rem; cursor: default; position: relative; overflow: hidden;
+      transition: border-color .25s, transform .25s, box-shadow .25s;
+    }
+    .pillar-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 60%, rgba(167,139,250,.08)); opacity: 0; transition: opacity .3s; }
+    .pillar-card:hover { border-color: var(--purple); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(167,139,250,.2); }
+    .pillar-card:hover::before { opacity: 1; }
+    .pillar-num { font-family: var(--mono); font-size: .7rem; color: var(--cyan); margin-bottom: .5rem; }
+    .pillar-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+    .pillar-card p { font-size: .85rem; margin: 0; }
+
+    .scroll-hint { margin-top: 3rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; color: var(--muted); font-size: .8rem; }
+    .scroll-arrow { width: 24px; height: 24px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); animation: bounce 2s infinite; }
+    @keyframes bounce { 0%,100% { transform: rotate(45deg) translateY(0); } 50% { transform: rotate(45deg) translateY(6px); } }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin: 1.5rem 0; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.5rem; transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+    .card.server { border-top: 3px solid var(--server); }
+    .card.client { border-top: 3px solid var(--client); }
+    .card.purple-card { border-top: 3px solid var(--purple); }
+    .card.danger { border-top: 3px solid var(--danger); }
+    .card.accent { border-top: 3px solid var(--accent); }
+    .card.cyan-card { border-top: 3px solid var(--cyan); }
+    .card.pink-card { border-top: 3px solid var(--pink); }
+    .card.success-card { border-top: 3px solid var(--success); }
+
+    .card-tag {
+      display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: .2rem .6rem; border-radius: 6px; margin-bottom: .8rem;
+    }
+    .tag-server { background: rgba(16,185,129,.15); color: var(--server); }
+    .tag-client { background: rgba(245,158,11,.15); color: var(--client); }
+    .tag-purple { background: rgba(167,139,250,.15); color: var(--purple); }
+    .tag-danger { background: rgba(239,68,68,.15); color: var(--danger); }
+    .tag-accent { background: rgba(59,130,246,.15); color: var(--accent); }
+    .tag-cyan { background: rgba(6,182,212,.15); color: var(--cyan); }
+    .tag-pink { background: rgba(236,72,153,.15); color: var(--pink); }
+    .tag-success { background: rgba(34,197,94,.15); color: var(--success); }
+
+    .highlight-box {
+      background: rgba(59,130,246,.08); border-left: 4px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0; padding: 1rem 1.2rem; margin: 1.5rem 0; font-size: .92rem;
+    }
+    .highlight-box p { margin: 0; color: var(--text); }
+    .highlight-box.danger-box { background: rgba(239,68,68,.08); border-color: var(--danger); }
+    .highlight-box.success-box { background: rgba(34,197,94,.08); border-color: var(--success); }
+    .highlight-box.purple-box { background: rgba(167,139,250,.08); border-color: var(--purple); }
+
+    .security-warning {
+      background: linear-gradient(135deg, rgba(239,68,68,.1), rgba(249,115,22,.08));
+      border: 2px solid rgba(239,68,68,.35); border-radius: var(--radius);
+      padding: 1.5rem 1.8rem; margin: 2rem 0; position: relative; overflow: hidden;
+    }
+    .security-warning::before { content: '🚫 红线禁区'; position: absolute; top: .8rem; right: 1rem; font-size: .72rem; font-weight: 700; letter-spacing: .05em; color: var(--danger); font-family: var(--mono); }
+    .security-warning p { color: var(--text); margin: 0; }
+
+    .blackboard {
+      background: linear-gradient(135deg, #0d1520 0%, #111827 100%);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; margin: 2rem 0;
+      position: relative; overflow: hidden;
+    }
+    .blackboard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--purple), var(--cyan)); }
+    .blackboard h3 { font-family: var(--mono); color: var(--purple); font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 1.2rem; }
+    .blackboard-items { display: flex; flex-direction: column; gap: .7rem; }
+    .blackboard-item { display: flex; gap: 1rem; align-items: flex-start; font-size: .9rem; color: var(--muted); }
+    .blackboard-item strong { color: var(--text); }
+    .bb-num { font-family: var(--mono); font-size: .78rem; font-weight: 700; color: var(--accent); background: rgba(59,130,246,.1); padding: .15rem .5rem; border-radius: 4px; flex-shrink: 0; margin-top: .1rem; }
+
+    .logic-prompt {
+      background: rgba(167,139,250,.06); border: 1px dashed rgba(167,139,250,.35);
+      border-radius: var(--radius); padding: 1.2rem 1.4rem; font-size: .92rem; color: var(--text);
+      margin: 1rem 0; line-height: 2; position: relative; overflow: hidden;
+    }
+    .logic-prompt::before { content: '🤖 AI 指令模板'; position: absolute; top: .5rem; right: .8rem; font-size: .68rem; font-weight: 700; letter-spacing: .05em; color: var(--purple); opacity: .7; font-family: var(--mono); }
+
+    .reveal { opacity: 0; transform: translateY(32px); }
+
+    footer { text-align: center; padding: 3rem 2rem; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--border); position: relative; z-index: 1; }
+
+    /* ═══ 交互演示专用样式 ═══ */
+    .demo-container {
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
+      border: 2px solid var(--border); border-radius: var(--radius);
+      padding: 2rem; margin: 2rem 0; position: relative; overflow: hidden;
+    }
+    .demo-container::before {
+      content: '🎮 交互演示'; position: absolute; top: .8rem; right: 1rem;
+      font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+      color: var(--purple); font-family: var(--mono);
+      background: rgba(167,139,250,.15); padding: .2rem .6rem; border-radius: 6px;
+    }
+    .demo-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem; color: var(--purple); padding-right: 6rem; }
+    .demo-hint { font-size: .82rem; color: var(--muted); margin-bottom: 1.2rem; font-style: italic; }
+
+    .demo-controls { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+    .demo-btn {
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+      padding: .5rem 1rem; cursor: pointer; font-size: .82rem; color: var(--muted);
+      transition: all .2s; display: inline-flex; align-items: center; gap: .4rem;
+    }
+    .demo-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
+    .demo-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .demo-btn.crud-c.active { background: var(--server); border-color: var(--server); }
+    .demo-btn.crud-r.active { background: var(--accent); border-color: var(--accent); }
+    .demo-btn.crud-u.active { background: var(--client); border-color: var(--client); }
+    .demo-btn.crud-d.active { background: var(--danger); border-color: var(--danger); }
+
+    /* 四层对照显示 */
+    .layer-display {
+      display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1rem;
+    }
+    .layer-row {
+      display: grid; grid-template-columns: 200px 1fr; gap: 1rem; align-items: center;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem 1.2rem; transition: all .3s;
+    }
+    @media (max-width: 700px) { .layer-row { grid-template-columns: 1fr; } }
+    .layer-row.active { border-color: var(--purple); box-shadow: 0 0 20px rgba(167,139,250,.2); }
+    .layer-label {
+      display: flex; align-items: center; gap: .5rem; font-weight: 700;
+      font-size: .88rem;
+    }
+    .layer-icon { font-size: 1.2rem; }
+    .layer-content {
+      font-family: var(--mono); font-size: .82rem; color: var(--text);
+      padding: .5rem .8rem; background: var(--surface-2); border-radius: 6px;
+      word-break: break-all;
+    }
+    .layer-content .token-method { font-weight: 700; }
+    .layer-content .token-method.get { color: var(--server); }
+    .layer-content .token-method.post { color: var(--accent); }
+    .layer-content .token-method.put { color: var(--client); }
+    .layer-content .token-method.patch { color: var(--purple); }
+    .layer-content .token-method.delete { color: var(--danger); }
+    .layer-content .token-sql { color: var(--cyan); font-weight: 700; }
+    .layer-content .token-path { color: var(--pink); }
+    .layer-content .token-body { color: var(--accent); }
+    .layer-content .token-query { color: var(--cyan); }
+
+    /* WHERE 演示器 */
+    .where-demo {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.5rem; margin-top: 1rem;
+    }
+    .sql-display {
+      font-family: var(--mono); font-size: .9rem; padding: 1rem;
+      background: #0d1117; border-radius: 8px; margin: 1rem 0;
+      line-height: 1.7; word-break: break-all; border: 1px solid var(--border);
+    }
+    .sql-keyword { color: var(--purple); font-weight: 700; }
+    .sql-table { color: var(--cyan); }
+    .sql-set { color: var(--client); }
+    .sql-where { color: var(--success); font-weight: 700; }
+    .sql-where.missing { color: var(--danger); text-decoration: line-through; }
+    .sql-value { color: var(--pink); }
+
+    .db-rows {
+      width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .82rem;
+    }
+    .db-rows th {
+      background: var(--surface-2); padding: .5rem .7rem; text-align: left;
+      font-weight: 700; border-bottom: 2px solid var(--border); font-size: .72rem;
+      color: var(--cyan);
+    }
+    .db-rows td {
+      padding: .5rem .7rem; border-bottom: 1px solid var(--border);
+      font-family: var(--mono); font-size: .76rem; transition: all .4s;
+    }
+    .db-rows .row-id { color: var(--purple); font-weight: 700; }
+    .db-rows .deleted { background: rgba(239,68,68,.15); }
+    .db-rows .deleted td { color: var(--danger); text-decoration: line-through; }
+    .db-rows .updated { background: rgba(34,197,94,.15); }
+    .db-rows .updated td { color: var(--success); font-weight: 700; }
+    .db-rows .target { background: rgba(245,158,11,.1); border-left: 3px solid var(--client); }
+
+    /* 链路动画 */
+    .chain-container {
+      background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.5rem; margin-top: 1rem;
+    }
+    .chain-stage {
+      display: flex; align-items: flex-start; gap: 1rem; padding: 1rem;
+      background: var(--surface-2); border-radius: 10px; margin-bottom: .8rem;
+      border: 1px solid var(--border); transition: all .4s; opacity: .4;
+    }
+    .chain-stage.active { opacity: 1; border-color: var(--purple); background: rgba(167,139,250,.08); box-shadow: 0 0 24px rgba(167,139,250,.3); }
+    .chain-stage.done { opacity: 1; border-color: var(--success); background: rgba(34,197,94,.05); }
+    .stage-num {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-weight: 700; font-size: .85rem;
+      flex-shrink: 0; transition: all .3s; border: 2px solid var(--border);
+    }
+    .chain-stage.active .stage-num { background: var(--purple); color: #fff; border-color: var(--purple); }
+    .chain-stage.done .stage-num { background: var(--success); color: #fff; border-color: var(--success); }
+    .stage-content { flex: 1; }
+    .stage-title { font-weight: 700; font-size: .92rem; margin-bottom: .3rem; }
+    .stage-desc { font-size: .8rem; color: var(--muted); margin-bottom: .4rem; }
+    .stage-detail {
+      font-size: .76rem; padding: .5rem .7rem; background: rgba(0,0,0,.3); border-radius: 6px;
+      font-family: var(--mono); color: var(--text); margin-top: .3rem;
+    }
+    .stage-badges { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .4rem; }
+    .stage-badge {
+      font-size: .68rem; font-weight: 700; padding: .15rem .5rem; border-radius: 4px;
+      font-family: var(--mono);
+    }
+    .stage-badge.crud { background: rgba(16,185,129,.15); color: var(--server); }
+    .stage-badge.rest { background: rgba(59,130,246,.15); color: var(--accent); }
+    .stage-badge.param { background: rgba(236,72,153,.15); color: var(--pink); }
+    .stage-badge.sql { background: rgba(6,182,212,.15); color: var(--cyan); }
+    .stage-badge.success { background: rgba(34,197,94,.15); color: var(--success); }
+
+    .demo-log {
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      padding: .8rem 1rem; margin-top: 1rem; font-family: var(--mono);
+      font-size: .76rem; line-height: 1.7; max-height: 200px; overflow-y: auto; color: var(--muted);
+    }
+    .demo-log .log-line { padding: .1rem 0; }
+    .demo-log .log-line.success { color: var(--success); }
+    .demo-log .log-line.error { color: var(--danger); }
+    .demo-log .log-line.info { color: var(--accent); }
+    .demo-log .log-line.warn { color: var(--client); }
+    .demo-log .log-line .time { color: #4a5568; margin-right: .5rem; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+      padding: .8rem 1.5rem; border-radius: 10px; font-size: .88rem; z-index: 200;
+      opacity: 0; transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      pointer-events: none; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* 对比表 */
+    .compare-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: .88rem; }
+    .compare-table th { background: var(--surface-2); padding: .8rem 1rem; text-align: left; font-weight: 700; border-bottom: 2px solid var(--border); font-size: .82rem; }
+    .compare-table td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; font-size: .82rem; }
+    .compare-table tr { transition: background .2s; }
+    .compare-table tr:hover td { background: rgba(167,139,250,.04); color: var(--text); }
+    .compare-table .crud-cell { font-weight: 700; }
+    .compare-table .crud-cell.c { color: var(--server); }
+    .compare-table .crud-cell.r { color: var(--accent); }
+    .compare-table .crud-cell.u { color: var(--client); }
+    .compare-table .crud-cell.d { color: var(--danger); }
+
+    /* 代码块 */
+    .code-block {
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      padding: 1rem 1.2rem; margin: 1rem 0; font-family: var(--mono);
+      font-size: .82rem; line-height: 1.7; overflow-x: auto; white-space: pre;
+    }
+    .code-block .kw { color: var(--purple); font-weight: 700; }
+    .code-block .tbl { color: var(--cyan); }
+    .code-block .col { color: var(--client); }
+    .code-block .val { color: var(--pink); }
+    .code-block .where { color: var(--success); font-weight: 700; }
+    .code-block .cmt { color: var(--muted); font-style: italic; }
+
+    /* Quiz */
+    .quiz-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: .8rem; overflow: hidden; }
+    .quiz-q { padding: 1rem 1.2rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .quiz-q:hover { background: var(--surface-2); }
+    .quiz-a { padding: 0 1.2rem; color: var(--muted); font-size: .9rem; max-height: 0; overflow: hidden; transition: max-height .4s, padding .3s; }
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow bg-glow-1"></div>
+<div class="bg-glow bg-glow-2"></div>
+<div class="progress-bar" id="progressBar"></div>
+
+<nav id="navbar">
+  <div class="nav-logo">🔗 <span>四层对照</span> · CRUD·REST·入参·SQL</div>
+  <ul class="nav-links">
+    <li><a href="#hero">开场</a></li>
+    <li><a href="#four-layers">四层体系</a></li>
+    <li><a href="#mapping">对照演示</a></li>
+    <li><a href="#sql">SQL 讲解</a></li>
+    <li><a href="#where">WHERE 演示</a></li>
+    <li><a href="#chain">全链路</a></li>
+    <li><a href="#quiz">检测</a></li>
+  </ul>
+</nav>
+
+<main>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero" id="hero">
+    <div class="hero-badge reveal">本节课 · CRUD·REST·入参·SQL 四层对照 + WHERE 安全 · 交互演示版</div>
+    <h1 class="reveal">四层概念各司其职 · 完整链路对照</h1>
+    <p class="hero-sub reveal">
+      四套概念一次讲透，搞清各自定位、不能互相替代：<br>
+      <strong style="color:var(--server)">CRUD</strong> = 业务动作统称（增删改查），不参与执行；<br>
+      <strong style="color:var(--accent)">REST</strong> = 网络传输层（GET/POST/PUT/PATCH/DELETE），浏览器和服务器通信；<br>
+      <strong style="color:var(--pink)">入参规范</strong> = Path/Query/Body 数据分区，安全隔离；<br>
+      <strong style="color:var(--cyan)">SQL</strong> = 底层数据库语言（SELECT/INSERT/UPDATE/DELETE），读写硬盘。<br><br>
+      <strong style="color:var(--danger)">配两个核心交互</strong>：四层对照演示器 + WHERE 缺失炸库演示。
+    </p>
+
+    <div class="hero-pillars reveal">
+      <div class="pillar-card">
+        <div class="pillar-num">01</div>
+        <h4>CRUD 业务层</h4>
+        <p>顶层业务统称，不参与执行</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-num">02</div>
+        <h4>REST 网络层</h4>
+        <p>浏览器 ↔ 后端通信标准</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-num">03</div>
+        <h4>入参规范层</h4>
+        <p>Path/Query/Body 安全分区</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-num">04</div>
+        <h4>SQL 数据层</h4>
+        <p>后端 ↔ 数据库唯一桥梁</p>
+      </div>
+    </div>
+
+    <div class="scroll-hint reveal">
+      <span>向下滚动 · 边读边玩演示</span>
+      <div class="scroll-arrow"></div>
+    </div>
+  </section>
+
+  <!-- ═══ 四层体系 ═══ -->
+  <section id="four-layers">
+    <div class="section-label purple-label reveal">第一部分 · 四层完整体系</div>
+    <h2 class="reveal">从用户页面 → 数据库硬盘</h2>
+
+    <div class="card-grid reveal">
+      <div class="card server">
+        <div class="card-tag tag-server">顶层业务</div>
+        <p><strong>CRUD</strong>（只描述你要做什么事）</p>
+        <p style="margin:0;color:var(--muted)">C 新增 · R 查询 · U 修改 · D 删除，业务行为统称</p>
+      </div>
+      <div class="card accent">
+        <div class="card-tag tag-accent">网络传输层</div>
+        <p><strong>REST HTTP 请求</strong></p>
+        <p style="margin:0;color:var(--muted)">GET/POST/PUT/PATCH/DELETE，浏览器和服务器通信</p>
+      </div>
+      <div class="card pink-card">
+        <div class="card-tag tag-pink">请求内部</div>
+        <p><strong>Path/Query/Body 入参规范</strong></p>
+        <p style="margin:0;color:var(--muted)">数据放哪，安全隔离，密码隐私必须 Body</p>
+      </div>
+      <div class="card cyan-card">
+        <div class="card-tag tag-cyan">底层数据库</div>
+        <p><strong>SQL</strong></p>
+        <p style="margin:0;color:var(--muted)">SELECT/INSERT/UPDATE/DELETE，读写硬盘真实数据</p>
+      </div>
+    </div>
+
+    <h3 class="reveal" style="margin-top:1.5rem">四层一一对应对照表（核心背诵）</h3>
+    <table class="compare-table reveal">
+      <thead>
+        <tr>
+          <th>业务 CRUD</th>
+          <th>含义</th>
+          <th>REST 请求方式</th>
+          <th>标准入参存放</th>
+          <th>后端 SQL 语句</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="crud-cell c">C Create</td>
+          <td>新增</td>
+          <td>POST</td>
+          <td>表单内容放 Body，无 Path ID</td>
+          <td>INSERT</td>
+        </tr>
+        <tr>
+          <td class="crud-cell r">R Read</td>
+          <td>查询</td>
+          <td>GET</td>
+          <td>ID 放 Path，筛选分页放 Query，禁止 Body</td>
+          <td>SELECT</td>
+        </tr>
+        <tr>
+          <td class="crud-cell u">U Update</td>
+          <td>全量修改</td>
+          <td>PUT</td>
+          <td>ID 放 Path，完整表单放 Body</td>
+          <td>UPDATE（全字段覆盖）</td>
+        </tr>
+        <tr>
+          <td class="crud-cell u">U Update</td>
+          <td>局部修改</td>
+          <td>PATCH</td>
+          <td>ID 放 Path，仅传变更字段 Body</td>
+          <td>UPDATE（单字段）</td>
+        </tr>
+        <tr>
+          <td class="crud-cell d">D Delete</td>
+          <td>删除</td>
+          <td>DELETE</td>
+          <td>ID 放 Path，无 Body</td>
+          <td>DELETE</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="reveal" style="margin-top:1.5rem">为什么要搞四层，不能合并成一套？</h3>
+    <div class="card-grid reveal">
+      <div class="card server">
+        <div class="card-tag tag-server">CRUD</div>
+        <p><strong>只是"名词统称"，没有执行能力</strong></p>
+        <p>好比吃饭（CRUD）只是描述行为，不能光说吃饭，还要出门下单（REST）、点什么菜（入参）、厨师做菜（SQL）。</p>
+      </div>
+      <div class="card accent">
+        <div class="card-tag tag-accent">REST</div>
+        <p><strong>只管网络传输，碰不到数据库</strong></p>
+        <p>浏览器只能发网络请求，没有权限、没有内网通道访问数据库，必须后端中转翻译 SQL。直接用 REST 删库 = 前端随便发 DELETE 清空全部数据。</p>
+      </div>
+      <div class="card pink-card">
+        <div class="card-tag tag-pink">入参规范</div>
+        <p><strong>是安全隔离手段</strong></p>
+        <p>如果不分 Path/Query/Body，密码、id 全部拼在网址，日志永久留存，隐私泄露、越权漏洞泛滥。</p>
+      </div>
+      <div class="card cyan-card">
+        <div class="card-tag tag-cyan">SQL</div>
+        <p><strong>只在内网后端执行，外网隔离</strong></p>
+        <p>数据库是核心数据存储，严禁外网直接访问，所以前端不能写 SQL，必须后端接收 REST 请求再翻译。</p>
+      </div>
+    </div>
+
+    <div class="security-warning reveal">
+      <p>🚫 <strong>每层缺失会出现的重大问题：</strong><br>
+      没有 CRUD：团队沟通无统一术语，需求看不懂；<br>
+      没有 REST 分层请求（全用 POST）：无法批量拦截高危接口，缓存失效；<br>
+      没有 Path/Query/Body 规范：参数乱放，明文泄露，越权漏洞满天飞；<br>
+      没有 SQL 隔离前端直连数据库：<strong style="color:var(--danger)">任何人前端写 DELETE 清空全表，数据永久丢失</strong>。</p>
+    </div>
+
+    <div class="highlight-box reveal">
+      <p>💡 <strong>关键分界线：</strong>前端可见 = CRUD、REST、入参；前端完全看不见 = SQL（仅后端代码存在，浏览器拿不到）。</p>
+    </div>
+  </section>
+
+  <!-- ═══ 四层对照演示 ═══ -->
+  <section id="mapping">
+    <div class="section-label cyan-label reveal">第二部分 · 四层对照交互演示</div>
+    <h2 class="reveal">选 CRUD · 看四层联动</h2>
+    <p class="reveal">这是本节课核心交互：选择业务操作（C/R/U/D），实时看四层如何对应联动。</p>
+
+    <div class="demo-container reveal">
+      <div class="demo-title">四层对照演示器 · 选操作看联动</div>
+      <div class="demo-hint">点击 C/R/U/D 任一按钮，看四层（CRUD → REST → 入参 → SQL）如何对应</div>
+
+      <div class="demo-controls">
+        <button class="demo-btn crud-c active" onclick="selectCrud('c')">🟢 C 新增</button>
+        <button class="demo-btn crud-r" onclick="selectCrud('r')">🔵 R 查询</button>
+        <button class="demo-btn crud-u" onclick="selectCrud('u')">🟡 U 修改</button>
+        <button class="demo-btn crud-d" onclick="selectCrud('d')">🔴 D 删除</button>
+      </div>
+
+      <div class="layer-display" id="layerDisplay">
+        <div class="layer-row active">
+          <div class="layer-label"><span class="layer-icon">📋</span> 顶层业务 CRUD</div>
+          <div class="layer-content" id="crudLayer"><span class="token-method post">C Create</span> · 新增一条数据</div>
+        </div>
+        <div class="layer-row active">
+          <div class="layer-label"><span class="layer-icon">🌐</span> 网络传输 REST</div>
+          <div class="layer-content" id="restLayer"><span class="token-method post">POST</span> <span class="token-path">/articles</span></div>
+        </div>
+        <div class="layer-row active">
+          <div class="layer-label"><span class="layer-icon">📦</span> 入参规范</div>
+          <div class="layer-content" id="paramLayer">无 Path ID · <span class="token-body">Body: {"title":"新文章","content":"正文"}</span></div>
+        </div>
+        <div class="layer-row active">
+          <div class="layer-label"><span class="layer-icon">🗄️</span> 数据库 SQL</div>
+          <div class="layer-content" id="sqlLayer"><span class="token-sql">INSERT INTO</span> article(title, content) <span class="token-sql">VALUES</span>("新文章", "正文")</div>
+        </div>
+      </div>
+
+      <div class="demo-log" id="mappingLog">
+        <div class="log-line info"><span class="time">[提示]</span>选择操作查看四层联动</div>
+      </div>
+    </div>
+
+    <h3 class="reveal" style="margin-top:1.5rem">易混点辨析</h3>
+    <div class="card-grid reveal">
+      <div class="card danger">
+        <div class="card-tag tag-danger">误区 1</div>
+        <p><strong>DELETE 请求 = 数据库 DELETE SQL？</strong></p>
+        <p style="margin:0;color:var(--danger)">❌ 错。DELETE 只是浏览器发的网络标识，没有任何删数据能力；只有后端执行 DELETE FROM... 才会真正删库。</p>
+      </div>
+      <div class="card danger">
+        <div class="card-tag tag-danger">误区 2</div>
+        <p><strong>CRUD 可以直接写接口？</strong></p>
+        <p style="margin:0;color:var(--danger)">❌ 错。CRUD 是业务叫法，接口必须遵循 REST 名词 URL 规则。</p>
+      </div>
+      <div class="card danger">
+        <div class="card-tag tag-danger">误区 3</div>
+        <p><strong>GET=SELECT 就能一套搞定？</strong></p>
+        <p style="margin:0;color:var(--danger)">❌ 错。GET 只是网络只读标记，拿不到数据还是要后端写 SELECT 查询数据库。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SQL 讲解 ═══ -->
+  <section id="sql">
+    <div class="section-label cyan-label reveal">第三部分 · SQL 通俗大白话</div>
+    <h2 class="reveal">SQL = 结构化查询语言</h2>
+    <p class="reveal">SQL = Structured Query Language，专门用来和数据库对话的「语言」，只有数据库能听懂。前面讲的 user 用户表、article 文章表，想查数据、新增、改数据、删数据，不能直接操作数据库文件，必须写 SQL 指令发给数据库。</p>
+
+    <div class="highlight-box reveal">
+      <p>💬 <strong>类比：</strong>前端写 JS、后端写 TS 是和服务器对话；写 SQL 是和数据库服务器对话。</p>
+    </div>
+
+    <h3 class="reveal" style="margin-top:1.5rem">四类核心 SQL 指令（对应 REST 四种请求）</h3>
+
+    <div class="card-grid reveal">
+      <div class="card server">
+        <div class="card-tag tag-server">SELECT · 查询</div>
+        <p>对应前端 GET 请求</p>
+        <div class="code-block"><span class="kw">SELECT</span> id, title, author_id
+<span class="kw">FROM</span> <span class="tbl">article</span>;</div>
+        <p style="margin:0;color:var(--muted)">从 article 表查出 id、标题、作者 ID</p>
+      </div>
+      <div class="card accent">
+        <div class="card-tag tag-accent">INSERT · 新增</div>
+        <p>对应前端 POST 新增</p>
+        <div class="code-block"><span class="kw">INSERT INTO</span> <span class="tbl">article</span>(title, author_id)
+<span class="kw">VALUES</span>(<span class="val">"春天游记"</span>, <span class="val">5</span>);</div>
+        <p style="margin:0;color:var(--muted)">新增一篇文章，作者 id=5</p>
+      </div>
+      <div class="card client">
+        <div class="card-tag tag-client">UPDATE · 修改</div>
+        <p>对应 PUT / PATCH</p>
+        <div class="code-block"><span class="kw">UPDATE</span> <span class="tbl">article</span>
+<span class="kw">SET</span> title=<span class="val">"新标题"</span>
+<span class="where">WHERE id=12</span>;</div>
+        <p style="margin:0;color:var(--muted)">WHERE id=12 是关键，不加会全表清空</p>
+      </div>
+      <div class="card danger">
+        <div class="card-tag tag-danger">DELETE · 删除</div>
+        <p>对应 DELETE 请求</p>
+        <div class="code-block"><span class="kw">DELETE FROM</span> <span class="tbl">article</span>
+<span class="where">WHERE id=12</span>;</div>
+        <p style="margin:0;color:var(--muted)">不加 WHERE 整张表清空，线上重大事故</p>
+      </div>
+    </div>
+
+    <h3 class="reveal" style="margin-top:1.5rem">一对多关联 SQL（用户表 + 文章表）</h3>
+    <p class="reveal">需求：查出文章 + 对应作者昵称，需要关联两张表</p>
+    <div class="code-block reveal"><span class="kw">SELECT</span> a.id, a.title, u.name
+<span class="kw">FROM</span> <span class="tbl">article</span> a
+<span class="kw">LEFT JOIN</span> <span class="tbl">user</span> u <span class="kw">ON</span> a.author_id = u.id;</div>
+    <p class="reveal"><code class="inline">a.author_id = u.id</code> 就是一对多外键关联，后端执行这条 SQL，才能把作者昵称一起查出来给到前端列表。</p>
+
+    <div class="security-warning reveal">
+      <p>🚨 <strong>学生高频误区：</strong><br>
+      ① 前端不能写、不能直接执行 SQL！SQL 只能写在后端代码里，数据库在内网，浏览器访问不到；<br>
+      ② AI 经常生成不带 WHERE 的 UPDATE/DELETE SQL，<strong style="color:var(--danger)">线上一执行全表清空，重大数据漏洞</strong>；<br>
+      ③ 不能用 slug 写关联查询，SQL 关联必须用数字 id，字符串匹配慢、容易出错。</p>
+    </div>
+  </section>
+
+  <!-- ═══ WHERE 演示 ═══ -->
+  <section id="where">
+    <div class="section-label danger-label reveal">第四部分 · WHERE 安全演示</div>
+    <h2 class="reveal">WHERE 缺失 = 炸库</h2>
+    <p class="reveal">WHERE 翻译：条件、筛选范围。写 UPDATE/DELETE SQL 时，WHERE 用来告诉数据库：只对"满足这个条件的那一行/几行"做修改、删除操作。<strong style="color:var(--danger)">没有 WHERE = 整张表全部数据改动/删除</strong>。</p>
+
+    <div class="demo-container reveal">
+      <div class="demo-title">WHERE 缺失演示器 · 切换看炸库效果</div>
+      <div class="demo-hint">切换操作类型和有无 WHERE，看数据库整张表的变化</div>
+
+      <div class="demo-controls">
+        <button class="demo-btn active" onclick="setWhereOp('delete')">🔴 DELETE 删除</button>
+        <button class="demo-btn" onclick="setWhereOp('update')">🟡 UPDATE 修改</button>
+        <span style="color:var(--muted);font-size:.82rem;margin-left:.5rem">|</span>
+        <button class="demo-btn active" onclick="setWhereMode(true)">✅ 带 WHERE</button>
+        <button class="demo-btn" onclick="setWhereMode(false)">💥 无 WHERE</button>
+        <button class="demo-btn" onclick="executeWhere()" style="background:var(--accent);color:#fff;border-color:var(--accent)">▶ 执行 SQL</button>
+        <button class="demo-btn" onclick="resetWhere()">↻ 重置</button>
+      </div>
+
+      <div class="where-demo">
+        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">SQL 语句：</div>
+        <div class="sql-display" id="sqlDisplay"></div>
+
+        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem;margin-top:1rem">🗄️ article 文章表数据：</div>
+        <table class="db-rows" id="dbRowsTable">
+          <thead>
+            <tr>
+              <th>id</th>
+              <th>title 标题</th>
+              <th>author_id</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody id="dbRowsTbody">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="demo-log" id="whereLog">
+        <div class="log-line info"><span class="time">[提示]</span>选择操作类型、有无 WHERE，点执行看效果</div>
+      </div>
+    </div>
+
+    <h3 class="reveal" style="margin-top:1.5rem">底层逻辑：数据库默认规则</h3>
+    <div class="highlight-box danger-box reveal">
+      <p>⚠️ <strong>UPDATE、DELETE 属于高危写入操作</strong>，数据库不会自动识别你只想改/删一条。只要你不给出筛选条件（WHERE），它默认作用于当前表全部行。<br>
+      SELECT 查询无所谓，只看数据不会破坏内容，所以 SELECT 不带 WHERE 没事；<br>
+      <strong style="color:var(--danger)">但改、删数据两条语句，WHERE 是强制安全屏障。</strong></p>
+    </div>
+
+    <div class="blackboard reveal">
+      <h3>📋 极简背诵口诀</h3>
+      <div class="blackboard-items">
+        <div class="blackboard-item">
+          <span class="bb-num" style="color:var(--danger)">⚠️</span>
+          <span>UPDATE/DELETE 不带 WHERE，<strong>全表清零炸库</strong></span>
+        </div>
+        <div class="blackboard-item">
+          <span class="bb-num" style="color:var(--success)">✅</span>
+          <span>WHERE 定范围，<strong>只动目标一行</strong></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ 全链路动画 ═══ -->
+  <section id="chain">
+    <div class="section-label purple-label reveal">第五部分 · 完整全链路动画</div>
+    <h2 class="reveal">删除文章 · 四层全部走一遍</h2>
+    <p class="reveal">需求：用户点击删除文章，业务属于 D (Delete)。看四层如何逐层联动。</p>
+
+    <div class="demo-container reveal">
+      <div class="demo-title">四层联动链路动画</div>
+      <div class="demo-hint">点击「开始演示」，看删除文章从用户点击到数据库执行的完整流程</div>
+
+      <div class="demo-controls">
+        <button class="demo-btn" onclick="runChainDemo()" style="background:var(--purple);color:#fff;border-color:var(--purple)">▶ 开始演示</button>
+        <button class="demo-btn" onclick="resetChain()">↻ 重置</button>
+      </div>
+
+      <div class="chain-container" id="chainContainer"></div>
+
+      <div class="demo-log" id="chainLog">
+        <div class="log-line info"><span class="time">[准备]</span>点击「开始演示」启动</div>
+      </div>
+    </div>
+
+    <div class="logic-prompt reveal">
+      生成全栈代码时，<strong>四层各司其职不能合并</strong>：<br>
+      ① 业务归类用 CRUD 统一术语；<br>
+      ② 网络传输用 REST 标准方法（GET/POST/PUT/PATCH/DELETE），URL 仅名词；<br>
+      ③ 入参规范：ID 放 Path，筛选放 Query，业务内容隐私放 Body；<br>
+      ④ 数据库操作用 SQL，UPDATE/DELETE 必须 WHERE id 锁定单条；<br>
+      ⑤ 前端只发 REST 请求，SQL 只在后端执行，前端永远碰不到数据库。
+    </div>
+  </section>
+
+  <!-- ═══ QUIZ ═══ -->
+  <section id="quiz">
+    <div class="section-label pink-label reveal">随堂检测</div>
+    <h2 class="reveal">四层对照思考题</h2>
+
+    <div class="quiz-item reveal">
+      <div class="quiz-q" onclick="toggleQuiz(this)">1. CRUD、REST、入参、SQL 四层各自负责什么？为什么不能合并？<span style="color:var(--accent);font-size:1.2rem">+</span></div>
+      <div class="quiz-a"><p style="margin:0 0 1rem;padding:0 1.2rem 1rem">CRUD 是顶层业务统称（增删改查），只描述行为不参与执行；REST 是网络传输层，规定用 GET/POST/PUT/PATCH/DELETE 通信；入参规范是 Path/Query/Body 数据分区，安全隔离；SQL 是底层数据库语言，读写硬盘。不能合并：CRUD 只是文字没执行能力；REST 只管网络碰不到数据库；入参规范是安全手段不分层就泄露隐私；SQL 只在内网后端执行外网隔离。好比吃饭：CRUD 是描述吃饭行为，REST 是出门下单，入参是点什么菜，SQL 是厨师做菜，四步缺一不可。</p></div>
+    </div>
+    <div class="quiz-item reveal">
+      <div class="quiz-q" onclick="toggleQuiz(this)">2. DELETE 请求等于数据库 DELETE SQL 吗？为什么？<span style="color:var(--accent);font-size:1.2rem">+</span></div>
+      <div class="quiz-a"><p style="margin:0 0 1rem;padding:0 1.2rem 1rem">不等于。DELETE 请求只是浏览器发的网络标识，没有任何删数据能力，数据库看不懂 HTTP 请求。只有后端接收到 DELETE 请求后，翻译成 DELETE FROM article WHERE id=10 这条 SQL，发给数据库执行，才会真正删除硬盘里的数据。前端不能直接执行 SQL，数据库在内网浏览器访问不到，必须后端中转翻译。所以 DELETE 请求是网络层指令，DELETE SQL 是数据库层指令，两者完全不同层。</p></div>
+    </div>
+    <div class="quiz-item reveal">
+      <div class="quiz-q" onclick="toggleQuiz(this)">3. WHERE 子句为什么不能丢？举例说明无 WHERE 的后果。<span style="color:var(--accent);font-size:1.2rem">+</span></div>
+      <div class="quiz-a"><p style="margin:0 0 1rem;padding:0 1.2rem 1rem">WHERE 用来限定操作范围，告诉数据库只对满足条件的行做修改/删除。没有 WHERE 数据库默认作用于整张表全部行。例如 DELETE FROM article WHERE id=66 只删 id=66 这一条；如果写成 DELETE FROM article（无 WHERE），数据库会把 article 表里所有文章全部删掉，线上执行直接丢全部业务数据无法恢复。UPDATE 同理：UPDATE article SET title="新标题"（无 WHERE）会把整张表每一篇文章标题全部统一改成这一句，历史内容全部报废。AI 生成 SQL 经常漏写 WHERE，是重大数据漏洞。</p></div>
+    </div>
+    <div class="quiz-item reveal">
+      <div class="quiz-q" onclick="toggleQuiz(this)">4. 完整全栈链路中 SQL 处在哪个环节？前端能直接执行 SQL 吗？<span style="color:var(--accent);font-size:1.2rem">+</span></div>
+      <div class="quiz-a"><p style="margin:0 0 1rem;padding:0 1.2rem 1rem">SQL 处在后端和数据库之间的环节。完整链路：前端点击按钮发 fetch → 后端接收请求、鉴权校验 → 后端写 SQL 发给数据库 → 数据库执行 SQL 返回数据 → 后端包装成 code/msg/data 给前端。前端不能直接执行 SQL，因为数据库在内网，浏览器访问不到，必须后端中转。SQL 是后端和数据库沟通的唯一桥梁，前端永远碰不到 SQL 语句，前端只发 REST 请求，后端接收后翻译成 SQL 操作数据库。</p></div>
+    </div>
+    <div class="quiz-item reveal">
+      <div class="quiz-q" onclick="toggleQuiz(this)">5. C/R/U/D 分别对应什么 REST 方式、入参位置、SQL 语句？<span style="color:var(--accent);font-size:1.2rem">+</span></div>
+      <div class="quiz-a"><p style="margin:0 0 1rem;padding:0 1.2rem 1rem">C Create 新增 → POST 请求，表单内容放 Body 无 Path ID，SQL 用 INSERT INTO。R Read 查询 → GET 请求，ID 放 Path 筛选分页放 Query 禁止 Body，SQL 用 SELECT。U Update 全量修改 → PUT 请求，ID 放 Path 完整表单放 Body，SQL 用 UPDATE 全字段覆盖。U Update 局部修改 → PATCH 请求，ID 放 Path 仅传变更字段 Body，SQL 用 UPDATE 单字段。D Delete 删除 → DELETE 请求，ID 放 Path 无 Body，SQL 用 DELETE FROM WHERE id。四层一一对应，各司其职。</p></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<footer>
+  CRUD·REST·入参·SQL 四层对照 + WHERE 安全 · 交互演示版<br>
+  四层各司其职 · 一层负责一层的事 · 缺一不可
+</footer>
+
+<script>
+  gsap.registerPlugin(ScrollTrigger);
+
+  gsap.utils.toArray('.reveal').forEach((el) => {
+    gsap.fromTo(el, { opacity: 0, y: 36 }, {
+      opacity: 1, y: 0, duration: 0.7, ease: 'power3.out',
+      scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+    });
+  });
+
+  gsap.from('.hero .reveal', { opacity: 0, y: 40, duration: 0.8, stagger: 0.12, ease: 'power3.out', delay: 0.2 });
+
+  window.addEventListener('scroll', () => {
+    const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  const toast = document.getElementById('toast');
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 2800);
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function addLog(logId, type, msg) {
+    const log = document.getElementById(logId);
+    const line = document.createElement('div');
+    line.className = `log-line ${type}`;
+    const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    line.innerHTML = `<span class="time">[${now}]</span>${msg}`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ════════════════════════════════════════════════
+  // 四层对照演示器
+  // ════════════════════════════════════════════════
+  const crudData = {
+    c: {
+      crud: '<span class="token-method post">C Create</span> · 新增一条数据',
+      rest: '<span class="token-method post">POST</span> <span class="token-path">/articles</span>',
+      param: '无 Path ID · <span class="token-body">Body: {"title":"新文章","content":"正文"}</span>',
+      sql: '<span class="token-sql">INSERT INTO</span> article(title, content) <span class="token-sql">VALUES</span>("新文章", "正文")',
+      log: '🟢 C 新增：POST /articles，Body 带表单内容，SQL 用 INSERT INTO',
+      color: 'server'
+    },
+    r: {
+      crud: '<span class="token-method get">R Read</span> · 查询数据列表/详情',
+      rest: '<span class="token-method get">GET</span> <span class="token-path">/articles/10</span><span class="token-query">?page=1&keyword=风景</span>',
+      param: '<span class="token-path">Path: 10</span> · <span class="token-query">Query: page=1, keyword=风景</span> · 禁止 Body',
+      sql: '<span class="token-sql">SELECT</span> id, title, author_id <span class="token-sql">FROM</span> article <span class="token-sql">WHERE</span> id=10',
+      log: '🔵 R 查询：GET /articles/10，ID 放 Path 筛选放 Query，SQL 用 SELECT',
+      color: 'accent'
+    },
+    u: {
+      crud: '<span class="token-method put">U Update</span> · 全量修改（PUT）/ 局部修改（PATCH）',
+      rest: '<span class="token-method patch">PATCH</span> <span class="token-path">/articles/10</span>',
+      param: '<span class="token-path">Path: 10</span> · <span class="token-body">Body: {"title":"新标题"}</span>（仅传变更字段）',
+      sql: '<span class="token-sql">UPDATE</span> article <span class="token-sql">SET</span> title="新标题" <span class="token-sql">WHERE</span> id=10',
+      log: '🟡 U 修改：PATCH /articles/10，ID 放 Path 变更字段放 Body，SQL 用 UPDATE WHERE',
+      color: 'client'
+    },
+    d: {
+      crud: '<span class="token-method delete">D Delete</span> · 删除一条数据',
+      rest: '<span class="token-method delete">DELETE</span> <span class="token-path">/articles/10</span>',
+      param: '<span class="token-path">Path: 10</span> · 无 Body 无 Query',
+      sql: '<span class="token-sql">DELETE FROM</span> article <span class="token-sql">WHERE</span> id=10',
+      log: '🔴 D 删除：DELETE /articles/10，ID 放 Path 无 Body，SQL 用 DELETE FROM WHERE',
+      color: 'danger'
+    }
+  };
+
+  function selectCrud(op) {
+    document.querySelectorAll('.crud-c, .crud-r, .crud-u, .crud-d').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.crud-${op}`).classList.add('active');
+    const d = crudData[op];
+    document.getElementById('crudLayer').innerHTML = d.crud;
+    document.getElementById('restLayer').innerHTML = d.rest;
+    document.getElementById('paramLayer').innerHTML = d.param;
+    document.getElementById('sqlLayer').innerHTML = d.sql;
+    addLog('mappingLog', 'info', d.log);
+  }
+
+  // ════════════════════════════════════════════════
+  // WHERE 缺失演示器
+  // ════════════════════════════════════════════════
+  const dbRowsOriginal = [
+    { id: 10, title: 'iPhone 15 评测', author_id: 5, status: '已发布' },
+    { id: 66, title: 'MacBook Pro 体验', author_id: 5, status: '已发布' },
+    { id: 88, title: 'iPad Air 实测', author_id: 8, status: '草稿' },
+    { id: 102, title: 'Apple Watch 评测', author_id: 5, status: '已发布' }
+  ];
+
+  let whereOp = 'delete';
+  let whereMode = true; // true=带WHERE, false=无WHERE
+  let dbRows = JSON.parse(JSON.stringify(dbRowsOriginal));
+
+  function setWhereOp(op) {
+    whereOp = op;
+    document.querySelectorAll('.demo-controls .demo-btn').forEach(b => {
+      if (b.textContent.includes('DELETE') || b.textContent.includes('UPDATE')) b.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    renderWhereDemo();
+  }
+
+  function setWhereMode(mode) {
+    whereMode = mode;
+    document.querySelectorAll('.demo-controls .demo-btn').forEach(b => {
+      if (b.textContent.includes('WHERE')) b.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    renderWhereDemo();
+  }
+
+  function renderWhereDemo() {
+    const sqlEl = document.getElementById('sqlDisplay');
+    if (whereOp === 'delete') {
+      if (whereMode) {
+        sqlEl.innerHTML = '<span class="sql-keyword">DELETE FROM</span> <span class="sql-table">article</span> <span class="sql-where">WHERE id = 66</span>;';
+      } else {
+        sqlEl.innerHTML = '<span class="sql-keyword">DELETE FROM</span> <span class="sql-table">article</span>; <span class="sql-where missing">-- 缺失 WHERE！</span>';
+      }
+    } else {
+      if (whereMode) {
+        sqlEl.innerHTML = '<span class="sql-keyword">UPDATE</span> <span class="sql-table">article</span> <span class="sql-keyword">SET</span> title=<span class="sql-value">"全新标题"</span> <span class="sql-where">WHERE id = 66</span>;';
+      } else {
+        sqlEl.innerHTML = '<span class="sql-keyword">UPDATE</span> <span class="sql-table">article</span> <span class="sql-keyword">SET</span> title=<span class="sql-value">"全新标题"</span>; <span class="sql-where missing">-- 缺失 WHERE！</span>';
+      }
+    }
+    renderDbRows();
+  }
+
+  function renderDbRows(highlights = {}) {
+    const tbody = document.getElementById('dbRowsTbody');
+    tbody.innerHTML = '';
+    dbRows.forEach(row => {
+      const tr = document.createElement('tr');
+      const highlight = highlights[row.id];
+      if (highlight === 'deleted') tr.classList.add('deleted');
+      else if (highlight === 'updated') tr.classList.add('updated');
+      else if (highlight === 'target') tr.classList.add('target');
+      tr.innerHTML = `
+        <td class="row-id">${row.id}</td>
+        <td>${row.title}</td>
+        <td>${row.author_id}</td>
+        <td>${row.status}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function resetWhere() {
+    dbRows = JSON.parse(JSON.stringify(dbRowsOriginal));
+    renderWhereDemo();
+    document.getElementById('whereLog').innerHTML = '<div class="log-line info"><span class="time">[重置]</span>数据库已恢复原始状态</div>';
+  }
+
+  function executeWhere() {
+    dbRows = JSON.parse(JSON.stringify(dbRowsOriginal));
+    const highlights = {};
+
+    if (whereMode) {
+      // 带 WHERE，只操作 id=66
+      highlights[66] = 'target';
+      if (whereOp === 'delete') {
+        addLog('whereLog', 'info', '📤 执行：DELETE FROM article WHERE id = 66');
+        dbRows = dbRows.filter(r => r.id !== 66);
+        highlights[66] = 'deleted';
+        addLog('whereLog', 'success', '✅ 仅删除 id=66 这一条，其他文章完全不动');
+        showToast('安全：仅删除 id=66 一条');
+      } else {
+        addLog('whereLog', 'info', '📤 执行：UPDATE article SET title="全新标题" WHERE id = 66');
+        dbRows.forEach(r => { if (r.id === 66) r.title = '全新标题'; });
+        highlights[66] = 'updated';
+        addLog('whereLog', 'success', '✅ 仅修改 id=66 标题，其他文章不受影响');
+        showToast('安全：仅修改 id=66 一条');
+      }
+    } else {
+      // 无 WHERE，全表操作
+      if (whereOp === 'delete') {
+        addLog('whereLog', 'error', '💥 执行：DELETE FROM article（无 WHERE）');
+        dbRows.forEach(r => highlights[r.id] = 'deleted');
+        dbRows = [];
+        addLog('whereLog', 'error', '🚨 炸库！整张表 4 条文章全部删除，数据永久丢失！');
+        showToast('炸库！整张表 4 条全部删除');
+      } else {
+        addLog('whereLog', 'error', '💥 执行：UPDATE article SET title="全新标题"（无 WHERE）');
+        dbRows.forEach(r => { r.title = '全新标题'; highlights[r.id] = 'updated'; });
+        addLog('whereLog', 'error', '🚨 全表篡改！4 条文章标题全部改成同一句，历史内容报废！');
+        showToast('全表篡改！4 条标题全部统一');
+      }
+    }
+
+    renderDbRows(highlights);
+  }
+
+  // 初始化
+  renderWhereDemo();
+
+  // ════════════════════════════════════════════════
+  // 全链路动画
+  // ════════════════════════════════════════════════
+  const chainStages = [
+    {
+      title: '业务归类', icon: '📋', type: 'crud',
+      desc: '用户点击删除文章，业务属于 D (Delete)',
+      detail: 'CRUD: D Delete（业务行为描述）',
+      badges: ['crud:CRUD 业务层'],
+      log: '📋 业务归类：D Delete 删除文章'
+    },
+    {
+      title: '前端网络层', icon: '🌐', type: 'rest',
+      desc: '前端发送 DELETE /articles/10，Path 带 id=10，浏览器自动携带 Cookie',
+      detail: 'REST: DELETE /articles/10 | Path: id=10 | Cookie 自动带',
+      badges: ['rest:REST 网络层', 'param:Path id=10'],
+      log: '🌐 前端发 DELETE /articles/10，Path 带 id=10，Cookie 自动携带'
+    },
+    {
+      title: '后端鉴权校验', icon: '🛡️', type: 'rest',
+      desc: '后端接收请求，Cookie 解析登录用户，对比文章 author_id，不一致返 403',
+      detail: 'Cookie loginUid=5 == article.author_id=5 ✅ 允许删除',
+      badges: ['rest:后端中间件', 'success:鉴权通过'],
+      log: '🛡️ 后端鉴权：Cookie loginUid=5 == 文章 author_id=5，允许删除'
+    },
+    {
+      title: '翻译成 SQL', icon: '🔄', type: 'sql',
+      desc: '后端把 DELETE 请求翻译成 SQL 语句，WHERE id=10 锁定单条',
+      detail: 'SQL: DELETE FROM article WHERE id = 10',
+      badges: ['sql:翻译 SQL', 'sql:WHERE id=10'],
+      log: '🔄 后端翻译：DELETE FROM article WHERE id = 10'
+    },
+    {
+      title: '数据库执行 SQL', icon: '🗄️', type: 'sql',
+      desc: '数据库执行 SQL，删除硬盘里 id=10 这条数据，结果返回后端',
+      detail: 'DB 执行成功 → 删除 1 行 → 返回结果给后端',
+      badges: ['sql:数据库执行', 'success:删除成功'],
+      log: '🗄️ 数据库执行 SQL，删除 id=10 这条数据，返回成功'
+    },
+    {
+      title: '封装返回', icon: '📦', type: 'rest',
+      desc: '后端包装 code/msg/data 三层返回前端',
+      detail: '{"code":200, "msg":"删除成功", "data":null}',
+      badges: ['rest:响应层', 'success:三层结构'],
+      log: '📦 封装返回：code=200, msg="删除成功", data=null'
+    },
+    {
+      title: '前端渲染', icon: '🎉', type: 'rest',
+      desc: '前端接收响应，code=200 移除 DOM 文章卡片，弹窗提示删除成功',
+      detail: '前端拦截器解析 → 移除列表项 → 弹窗"删除成功"',
+      badges: ['rest:前端接收', 'success:局部刷新'],
+      log: '🎉 前端接收响应，移除 DOM 文章卡片，弹窗提示成功'
+    }
+  ];
+
+  function resetChain() {
+    const container = document.getElementById('chainContainer');
+    container.innerHTML = '';
+    chainStages.forEach((s, i) => {
+      const el = document.createElement('div');
+      el.className = 'chain-stage';
+      el.id = `chainStage${i}`;
+      const badgesHtml = s.badges.map(b => {
+        const [type, text] = b.split(':');
+        return `<span class="stage-badge ${type}">${text}</span>`;
+      }).join('');
+      el.innerHTML = `
+        <div class="stage-num">${i + 1}</div>
+        <div class="stage-content">
+          <div class="stage-title">${s.icon} ${s.title}</div>
+          <div class="stage-desc">${s.desc}</div>
+          <div class="stage-detail">${s.detail}</div>
+          <div class="stage-badges">${badgesHtml}</div>
+        </div>
+      `;
+      container.appendChild(el);
+    });
+    document.getElementById('chainLog').innerHTML = '<div class="log-line info"><span class="time">[准备]</span>点击「开始演示」启动</div>';
+  }
+
+  async function runChainDemo() {
+    resetChain();
+    addLog('chainLog', 'info', '═══ 删除文章四层联动链路开始 ═══');
+    for (let i = 0; i < chainStages.length; i++) {
+      const s = chainStages[i];
+      const el = document.getElementById(`chainStage${i}`);
+      el.classList.add('active');
+      const logType = i === 3 || i === 4 ? 'warn' : 'success';
+      addLog('chainLog', logType, s.log);
+      await sleep(700);
+      el.classList.remove('active');
+      el.classList.add('done');
+      await sleep(200);
+    }
+    addLog('chainLog', 'success', '✅ 四层联动完成：CRUD → REST → 入参 → SQL → 数据库 → 返回');
+    showToast('链路演示完成：四层全部走通');
+  }
+
+  // 初始化
+  resetChain();
+
+  // ════════════════════════════════════════════════
+  // Quiz
+  // ════════════════════════════════════════════════
+  function toggleQuiz(q) {
+    const answer = q.nextElementSibling;
+    const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
+    document.querySelectorAll('.quiz-a').forEach(a => { a.style.maxHeight = '0px'; a.style.paddingBottom = '0'; });
+    document.querySelectorAll('.quiz-q span').forEach(s => s.textContent = '+');
+    if (!isOpen) {
+      answer.style.maxHeight = '500px';
+      answer.style.paddingBottom = '1rem';
+      q.querySelector('span').textContent = '×';
+    }
+  }
+
+  // Card hover
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('mouseenter', () => gsap.to(card, { y: -5, duration: 0.25 }));
+    card.addEventListener('mouseleave', () => gsap.to(card, { y: 0, duration: 0.25 }));
+  });
+
+  // Blackboard items
+  gsap.utils.toArray('.blackboard-item').forEach((item, i) => {
+    ScrollTrigger.create({
+      trigger: item, start: 'top 92%',
+      onEnter: () => gsap.fromTo(item, { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.4, delay: i * 0.08, ease: 'power2.out' })
+    });
+  });
+</script>
+</body>
+</html>
